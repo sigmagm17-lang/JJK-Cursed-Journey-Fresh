@@ -1,0 +1,27 @@
+/* Quest RPG V23 - deterministic progression rules. Works in Node and browsers. */
+(function(root,factory){const value=factory();if(typeof module==='object'&&module.exports)module.exports=value;else root.CursedRPG=value;})(typeof globalThis!=='undefined'?globalThis:this,function(){
+'use strict';
+const MAX_LEVEL=100;
+const ZONES=[
+{id:'school',name:'JUJUTSU HIGH',min:1,boss:'finger',bossLevel:12,color:'#60785e',mob:'curse',mobName:'LOW GRADE CURSE',npc:'gojo',bossName:'FINGER BEARER'},
+{id:'streets',name:'TOKYO BACKSTREETS',min:12,boss:'geto',bossLevel:25,color:'#646279',mob:'finger',mobName:'CURSED BRUTE',npc:'nanami',bossName:'GETO'},
+{id:'shibuya',name:'SHIBUYA DISTRICT',min:25,boss:'mahito',bossLevel:40,color:'#52546c',mob:'curse',mobName:'TRANSFIGURED CURSE',npc:'todo',bossName:'MAHITO'},
+{id:'subway',name:'SHIBUYA UNDERGROUND',min:40,boss:'jogo',bossLevel:55,color:'#4d5567',mob:'finger',mobName:'SUBWAY CURSE',npc:'nanami',bossName:'JOGO'},
+{id:'forest',name:'CURSED FOREST',min:55,boss:'hanami',bossLevel:70,color:'#426659',mob:'hanami',mobName:'FOREST SPIRIT',npc:'maki',bossName:'HANAMI'},
+{id:'ruins',name:'SHINJUKU RUINS',min:70,boss:'mahoraga',bossLevel:90,color:'#66535c',mob:'curse',mobName:'SPECIAL CURSE',npc:'yuta',bossName:'MAHORAGA'},
+{id:'shrine',name:'CURSED SHRINE',min:90,boss:'heian',bossLevel:100,color:'#693d49',mob:'finger',mobName:'SHRINE GUARDIAN',npc:'gojo',bossName:'SUKUNA'}
+];
+const HEROES=[{id:'yuji',name:'YUJI',min:1,cost:0},{id:'megumi',name:'MEGUMI',min:10,cost:450},{id:'todo',name:'TODO',min:25,cost:2600},{id:'gojo',name:'GOJO',min:40,cost:5500},{id:'maki',name:'MAKI',min:50,cost:6800},{id:'yuta',name:'YUTA',min:65,cost:11000},{id:'hakari',name:'HAKARI',min:75,cost:15000},{id:'gojo_prime',name:'PRIME GOJO',min:100,cost:0,final:true}];
+const SKINS=[{id:'yuji_shibuya',name:'SHIBUYA YUJI',hero:'yuji',min:22,cost:1400},{id:'megumi_shadow',name:'SHADOW MEGUMI',hero:'megumi',min:33,cost:3800},{id:'maki_battle',name:'BATTLE MAKI',hero:'maki',min:64,cost:6500},{id:'hakari_jackpot',name:'JACKPOT HAKARI',hero:'hakari',min:86,cost:9000},{id:'gojo_final',name:'FINAL BATTLE GOJO',hero:'gojo',min:85,cost:17000}];
+function xpNeed(lvl){return Math.round(105+lvl*40+5.25*lvl*lvl);}
+function rankStage(level){return Math.max(0,ZONES.reduce((n,z,i)=>level>=z.min?i:n,0));}
+function questFor(stage,cycle){const z=ZONES[stage],n=3+Math.min(6,Math.floor(stage*1.2))+(cycle%3===2?1:0);return {stage,kind:cycle%3===1?'hunt':cycle%3===2?'hunt':'hunt',target:n,name:['EXORCISE','PATROL & PURGE','CURSED WAVE'][cycle%3]+' · '+z.mobName,xp:Math.round(145*Math.pow(1.56,stage)*(1+Math.min(cycle,10)*.06)),coins:Math.round(70*Math.pow(1.52,stage)*(1+Math.min(cycle,10)*.04))};}
+function bossFor(stage){const z=ZONES[stage];return {stage,target:z.boss,min:z.bossLevel,name:'BOSS CONTRACT · '+z.bossName,xp:Math.round(1400*Math.pow(1.5,stage)),coins:Math.round(510*Math.pow(1.53,stage))};}
+function canVisit(state,stage){return stage===0||(state.level>=ZONES[stage].min && state.cleared.includes(ZONES[stage-1].boss));}
+function earn(state,xp,coins){state.xp+=Math.max(0,Math.floor(xp));state.coins+=Math.max(0,Math.floor(coins));let levels=0;while(state.level<MAX_LEVEL&&state.xp>=xpNeed(state.level)){state.xp-=xpNeed(state.level);state.level++;state.points+=3;levels++;}if(state.level===MAX_LEVEL){state.xp=0;if(!state.owned.includes('gojo_prime'))state.owned.push('gojo_prime');if(!state.prime){state.prime=true;state.hero='gojo_prime';state.skin='';}}return levels;}
+function initial(){return {level:1,xp:0,coins:0,points:0,str:0,def:0,energy:0,hero:'yuji',owned:['yuji'],skins:[],skin:'',cleared:[],zone:0,x:11,y:18,quest:null,cycles:[0,0,0,0,0,0,0],heals:2,wins:0,defeats:0,prime:false,sukunaDown:false};}
+function sanitize(raw){let s=Object.assign(initial(),raw||{});s.level=Math.min(100,Math.max(1,Math.round(s.level)||1));s.xp=Math.max(0,Number(s.xp)||0);s.coins=Math.max(0,Number(s.coins)||0);s.points=Math.max(0,Number(s.points)||0);s.cleared=Array.isArray(s.cleared)?s.cleared.filter(id=>ZONES.some(z=>z.boss===id)):[];s.owned=Array.isArray(s.owned)?s.owned.filter(id=>HEROES.some(h=>h.id===id)):['yuji'];if(!s.owned.includes('yuji'))s.owned.push('yuji');s.skins=Array.isArray(s.skins)?s.skins.filter(id=>SKINS.some(a=>a.id===id)):[];s.cycles=Array.from({length:7},(_,i)=>Math.max(0,Math.floor(s.cycles?.[i])||0));s.zone=Math.max(0,Math.min(6,Math.floor(s.zone)||0));if(!canVisit(s,s.zone))s.zone=0;s.x=Number.isFinite(s.x)?Math.min(75,Math.max(2,s.x)):9;s.y=Number.isFinite(s.y)?Math.min(55,Math.max(2,s.y)):18;s.heals=Math.max(0,Math.min(99,Math.floor(s.heals)||0));if(!s.owned.includes(s.hero))s.hero='yuji';if(s.quest&&(!Number.isInteger(s.quest.stage)||s.quest.stage<0||s.quest.stage>6))s.quest=null;s.prime=Boolean(s.level>=100);return s;}
+function buyHero(s,id){const h=HEROES.find(a=>a.id===id);if(!h)return 'UNKNOWN';if(s.owned.includes(id))return 'OWNED';if(s.level<h.min)return 'LEVEL';if(h.final){if(s.level<100)return 'LEVEL';s.owned.push('gojo_prime');s.prime=true;return 'OK';}if(s.coins<h.cost)return 'COINS';s.coins-=h.cost;s.owned.push(id);return 'OK';}
+function buySkin(s,id){const k=SKINS.find(a=>a.id===id);if(!k)return 'UNKNOWN';if(s.skins.includes(id))return 'OWNED';if(!s.owned.includes(k.hero))return 'HERO';if(s.level<k.min)return 'LEVEL';if(s.coins<k.cost)return 'COINS';s.coins-=k.cost;s.skins.push(id);return 'OK';}
+return {MAX_LEVEL,ZONES,HEROES,SKINS,xpNeed,rankStage,questFor,bossFor,canVisit,earn,initial,sanitize,buyHero,buySkin};
+});
