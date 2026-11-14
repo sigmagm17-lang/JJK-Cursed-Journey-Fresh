@@ -1,0 +1,13 @@
+'use strict';const assert=require('node:assert/strict');const C=require('../public/rpg-core.js');
+assert.equal(C.ZONES.length,7);assert.equal(C.MAX_LEVEL,100);
+assert.deepEqual(C.ZONES.map(z=>z.boss),['finger','geto','mahito','jogo','hanami','mahoraga','heian']);
+let s=C.initial();assert.equal(s.level,1);assert.equal(C.canVisit(s,1),false);assert.equal(C.canVisit(s,0),true);
+const easy=C.questFor(0,0),hard=C.questFor(6,0);assert.ok(easy.target< hard.target);assert.ok(easy.xp<hard.xp);assert.ok(C.xpNeed(99)>C.xpNeed(1)*100);
+let before=s.coins;C.earn(s,200,100);assert.ok(s.level>=2);assert.equal(s.coins,before+100);
+const low=C.buyHero(s,'gojo_prime');assert.equal(low,'LEVEL');
+while(s.level<100)C.earn(s,C.xpNeed(s.level),0);assert.equal(s.level,100);
+assert.ok(s.owned.includes('gojo_prime'));assert.equal(s.hero,'gojo_prime');assert.equal(s.prime,true);
+s.cleared.push('finger');assert.equal(C.canVisit(s,1),true);
+let saved=C.sanitize({...s,zone:5});assert.equal(saved.zone,0,'locked region cannot load as unlocked');
+assert.ok(C.SKINS.some(k=>k.id==='gojo_final'));
+console.log('RPG progression tests: PASS');
