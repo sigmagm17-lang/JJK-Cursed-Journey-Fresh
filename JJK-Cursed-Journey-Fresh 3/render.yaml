@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: jjk-pixel-clash
-    runtime: node
-    plan: free
-    buildCommand: echo "No dependencies"
-    startCommand: node server.js
